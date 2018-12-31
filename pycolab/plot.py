@@ -90,7 +90,7 @@ class Plot(dict):
       the game is reached, then 0.
     """
     # For fast access
-    __slots__ = ('z_updates', 'summed_reward', 'game_over', 'discount')
+    __slots__ = ('z_updates', 'summed_reward', 'game_over', 'discount')#, 'sequence')
 
     def __init__(self):
       """Construct a no-op `_EngineDirectives`.
@@ -102,6 +102,7 @@ class Plot(dict):
       self.summed_reward = None
       self.game_over = False
       self.discount = 1.0
+      # self.sequence = []
 
   def __init__(self):
     """Construct a new `Plot` object."""
@@ -225,6 +226,9 @@ class Plot(dict):
     else:
       self._engine_directives.summed_reward += reward
 
+  # def add_to_sequence(self, character):
+  #  self._engine_directives.sequence.append(character)
+
   def log(self, message):
     """Log a message for eventual disposal by the game engine user.
 
@@ -288,6 +292,10 @@ class Plot(dict):
 
   ### Public properties for global story state. ###
 
+  #@property
+  #def sequence_collected(self):
+  #  return self._engine_directives.sequence
+  
   @property
   def prior_chapter(self):
     """Key/index for the prior game in a `Story`, or None for no prior game."""

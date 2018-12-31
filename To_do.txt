@@ -1,0 +1,12 @@
+TO DO:
+
+Current assumptions: 
+
+
+- understand human_ui;
+- see how you can create an automated version
+
+- convert to gym like environment; so that we get the observation and everything in a very uniform fashion
+- reuse psketch code:
+	given instruction, out demo
+

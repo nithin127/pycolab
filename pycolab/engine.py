@@ -245,6 +245,11 @@ class Engine(object):
     # Code should not keep local references to this object or its members.
     self._board = None
 
+    # Will collect the sequence of action, and keep note of it; might be done some other way elsewhere
+    # Pretty sure there is already a way to store such information in the plot; or the game. But for now, we're going with this
+    # self._sequence = []
+    # self._target_sequence = [] # We define this in the custom_game.py itself; instead of complicating it here
+
   def set_backdrop(self, characters, backdrop_class, *args, **kwargs):
     """Add a `Backdrop` to this `Engine`.
 
@@ -834,6 +839,9 @@ class Engine(object):
       # of Sprites and Drapes.
       self._sprites_and_drapes = new_sprites_and_drapes
 
+    # Update the sequence of objects visited/collected:
+    # self._sequence += directives.sequence
+    
     # The Backdrop or one of the Sprites or Drapes may have directed the game
     # to end. Update our game-over flag.
     self._game_over = directives.game_over

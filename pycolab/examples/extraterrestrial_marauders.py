@@ -142,8 +142,8 @@ class MarauderDrape(plab_things.Drape):
     # Where are the laser bolts? Only bolts from the player kill a Marauder.
     bolts = np.logical_or.reduce([layers[c] for c in UPWARD_BOLT_CHARS], axis=0)
     hits = bolts & self.curtain                       # Any hits to Marauders?
-    np.logical_xor(self.curtain, hits, self.curtain)  # If so, zap the marauder...
-    the_plot.add_reward(np.sum(hits)*10)              # ...and supply a reward.
+    np.logical_xor(self.curtain, hits, self.curtain)  # If so, zap the marauder ...
+    the_plot.add_reward(np.sum(hits)*10)              # ... and supply a reward.
     # Save the identities of marauder-striking bolts in the Plot.
     the_plot['marauder_hitters'] = [chr(c) for c in board[hits]]
 
