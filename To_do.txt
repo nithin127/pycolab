@@ -2,11 +2,13 @@ TO DO:
 
 Current assumptions: 
 
+- pass the env to the custom game; 
+- visualise the instructions
+	(some error in execution -- the way some stuff was done)
+- disable the visualisation
+- enable the passing of enough env states that the demo can be visualised if necessary
 
-- understand human_ui;
-- see how you can create an automated version
 
-- convert to gym like environment; so that we get the observation and everything in a very uniform fashion
-- reuse psketch code:
-	given instruction, out demo
+- get 1000 demonstrations
 
+- Get behaviour cloning; loss

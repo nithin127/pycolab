@@ -39,7 +39,7 @@ class AgentUi(object):
   def __init__(self,
                keys_to_actions, delay=None,
                repainter=None, colour_fg=None, colour_bg=None,
-               croppers=None):
+               croppers=None, target_sequence=None):
     """Construct and configure a `CursesUi` for pycolab games.
 
     A `CursesUi` object can be used over and over again to play any number of
@@ -132,7 +132,7 @@ class AgentUi(object):
     self._log_messages = []
 
     # The agent that'll take all the action
-    self.agent = Agent_Network()
+    self.agent = Agent_Network(target_sequence=target_sequence)
 
     # The curses `getch` routine returns numeric keycodes, but users can specify
     # keyboard input as strings as well, so we convert strings to keycodes.
@@ -179,6 +179,40 @@ class AgentUi(object):
       raise TypeError('The croppers argument to the CursesUi constructor must '
                       'be a sequence or None, not a "bare" object.')
 
+
+  def generate(self, game):
+    """
+    Generates demonstration; based on the play function
+    """
+    if self._game is not None:
+      raise RuntimeError('CursesUi is not at all thread safe')
+    self._game = game
+    
+    # The game has concluded. Print the final statistics.
+    print('Game over! Final score is {}.'.format(
+        self._total_return))
+
+    observation_list = []
+
+    observation, reward, _ = self._game.its_showtime()
+    observation_list.append(observation)
+    self._total_return = reward
+    
+    # Oh boy, play the game!
+    while not self._game.game_over:
+
+      # Load Agent policy here:
+      action = self.agent.agent_network(observation, self._action_list)
+      observation, reward, _ = self._game.play(action)
+      observation_list.append(observation)
+      if self._total_return is None:
+        self._total_return = reward
+      elif reward is not None:
+        self._total_return += reward
+
+    return observation_list
+
+
   def play(self, game):
     """Play a pycolab game.
 
@@ -215,6 +249,7 @@ class AgentUi(object):
     self._game = None
     self._start_time = None
     self._total_return = None
+
 
   def _init_curses_and_play(self, screen):
     """Set up an already-running curses; do interaction loop.
@@ -288,10 +323,9 @@ class AgentUi(object):
       # method. Note that the timeout "keycode" -1 is treated the same as any
       # other keycode here.
 
-      # Load Neural Network here:
+      # Load the agent policy here:
       action = self.agent.agent_network(observation, self._action_list)
-      time.sleep(0.5)
-      # action = np.random.choice(action_list[:-2])
+      time.sleep(0.2)
       observation, reward, _ = self._game.play(action)
       observations = crop_and_repaint(observation)
       if self._total_return is None:
