@@ -31,7 +31,7 @@ from pycolab.protocols import logging as plab_logging
 
 import six
 
-from pycolab.agent import Agent_Network
+from pycolab.agent import AgentNetwork
 
 class AgentUi(object):
   """A terminal-based UI for pycolab games."""
@@ -132,7 +132,7 @@ class AgentUi(object):
     self._log_messages = []
 
     # The agent that'll take all the action
-    self.agent = Agent_Network(target_sequence=target_sequence)
+    self.agent = AgentNetwork(target_sequence=target_sequence)
 
     # The curses `getch` routine returns numeric keycodes, but users can specify
     # keyboard input as strings as well, so we convert strings to keycodes.
@@ -193,6 +193,7 @@ class AgentUi(object):
         self._total_return))
 
     observation_list = []
+    actions_list = []
 
     observation, reward, _ = self._game.its_showtime()
     observation_list.append(observation)
@@ -203,6 +204,7 @@ class AgentUi(object):
 
       # Load Agent policy here:
       action = self.agent.agent_network(observation, self._action_list)
+      actions_list.append(action)
       observation, reward, _ = self._game.play(action)
       observation_list.append(observation)
       if self._total_return is None:
@@ -210,7 +212,7 @@ class AgentUi(object):
       elif reward is not None:
         self._total_return += reward
 
-    return observation_list
+    return observation_list, actions_list
 
 
   def play(self, game):
@@ -344,6 +346,17 @@ class AgentUi(object):
 
       # Show the screen to the user.
       curses.doupdate()
+
+
+  def visualise_from_demo(self, observation_list):
+    # CHECKPOINT; complete this ... 
+    self._start_time = datetime.datetime.now()
+    for cropper in self._croppers:
+      cropper.set_engine(self._game)
+
+    # After turning on curses, set it up and play the game.
+    curses.wrapper(self._init_curses_and_replay)
+
 
   def _display(self, screen, observations, score, elapsed):
     """Redraw the game board onto the screen, with elapsed time and score.
