@@ -194,6 +194,7 @@ class AgentUi(object):
 
     observation_list = []
     actions_list = []
+    target_list = []
 
     observation, reward, _ = self._game.its_showtime()
     observation_list.append(observation)
@@ -203,8 +204,9 @@ class AgentUi(object):
     while not self._game.game_over:
 
       # Load Agent policy here:
-      action = self.agent.agent_network(observation, self._action_list)
+      action, target = self.agent.agent_network(observation, self._action_list)
       actions_list.append(action)
+      target_list.append(target)
       observation, reward, _ = self._game.play(action)
       observation_list.append(observation)
       if self._total_return is None:
@@ -212,7 +214,7 @@ class AgentUi(object):
       elif reward is not None:
         self._total_return += reward
 
-    return observation_list, actions_list
+    return observation_list, actions_list, target_list
 
 
   def play(self, game):

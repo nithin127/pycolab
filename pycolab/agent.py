@@ -8,7 +8,7 @@ OBS_ORDER = '$H&@J/*c!d#P'
 TARGET_SEQUENCE = ['v$']
 np.random.shuffle(TARGET_SEQUENCE)
 
-class Agent_Network:
+class AgentNetwork:
 	def __init__(self, observation_order = OBS_ORDER, target_sequence = TARGET_SEQUENCE):
 		self._observation_order = observation_order
 		self._target_sequence = target_sequence
@@ -95,11 +95,13 @@ class Agent_Network:
 		else:
 			self._current_plan = seq
 
+
 	def set_empty_space(self, observation):
 		self._empty_space = np.ones(observation.board.shape)
 		for char in OBS_ORDER:
 			self._empty_space -= observation.layers[char]
-		
+
+
 	def next_iter(self, observation):
 		self.encode_observation_3d(observation.layers)
 
@@ -127,15 +129,15 @@ class Agent_Network:
 			self._current_index = 0
 			self.ij_limit = observation.board.shape 
 			self.next_iter(observation)
-		
+
 		self._plan_index += 1
 		if self._plan_index > len(self._current_plan):
 			self._current_index += 1
 			if len(self._target_sequence) == self._current_index:
 				print("all the instructions successfully executed")
-				return 9
+				return 9, None
 			else:
 				self.next_iter(observation)
 			# reset_to_next_target
-		return self._current_plan[self._plan_index - 1]
+		return self._current_plan[self._plan_index - 1], self._target_sequence[self._current_index]
 	

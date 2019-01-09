@@ -531,6 +531,7 @@ def main(argv=()):
 
   get_demo = argv[3] if len(argv) > 3 else False
   # Let the game begin!
+    
   if not get_demo:
     ui.play(game)
   else:

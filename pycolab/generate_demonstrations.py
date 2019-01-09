@@ -56,17 +56,16 @@ def main(vis = False):
 			if vis:
 				visualise_demo(demo)
 			mazes.append(maze)
-			demos.append(demo)
+			demos.append({"observations": demo[0], "actions": demo[1], "targets": demo[2], })
 			print(nd)
 
 		except:
 			# Some shit going on here, figure out later
 			pass
 
-
 	import ipdb; ipdb.set_trace()	
 	import pickle
-	pickle.dump({"mazes": mazes, "observations": demos[0], "actions": demos[1]}, open("mazes_and_demos.pk", "wb"))
+	pickle.dump({"mazes": mazes, "demos": demos}, open("mazes_and_demos.pk", "wb"))
 	return mazes, demos
 
 

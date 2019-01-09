@@ -11,4 +11,15 @@ Current assumptions:
 
 - get 1000 demonstrations
 
+
+
 - Get behaviour cloning; loss
+
+- Read the paper again
+- Add the VAE loss
+
+ICML: 22nd
+- sat: bc today
+- sun-mon: vae loss in 2 days; reproduce their results
+- tue: generalising the environment
+

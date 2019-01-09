@@ -1,58 +1,103 @@
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 
 import pickle
 import numpy as np
 
 
-class bcNet(nn.Module):
-	def __init__(self, action_list):
-		super(AgentNetwork, self).__init__()
-		self._action_list = action_list
+class EmbedCNN(nn.Module):
+	def __init__(self):
+		super(EmbedCNN, self).__init__()
 		# Convolutional layers
-		self.conv1 = nn.Conv2d(12, 6, (4, 8)) # Size (-1, 12, 10, 30) -> (-1, 5, 8, 28)
-		self.conv2 = nn.Conv2d( 6, 3, (4, 8)) # Size (-1,  5,  8, 28) -> (-1, 3, 4, 16)
+		self.conv1 = nn.Conv2d(12, 64, (3, 3)) # Size (-1, 12, 10, 30) -> (-1, 64, 8, 28)
+		self.conv2 = nn.Conv2d(64, 64, (3, 3)) # Size (-1, 64,  8, 28) -> (-1, 64, 6, 26)
 		# FC layers
-		self.f1 = nn.Linear(192, 64) # Input size (-1,  5,  8, 28)
-		self.f2 = nn.Linear( 64, 32) # Input size (-1,  5,  8, 28)
-		self.f3 = nn.Linear( 32, len(self._action_list)) # Input size (-1,  5,  8, 28)
-
-
-	def forward(self, observations, actions):
+		self.f1 = nn.Linear(9984, 256) # Input size (-1,  9984)
 		
+	def forward(self, x):
+		x = F.relu(self.conv1(x))
+		x = F.relu(self.conv2(x))
+		x = x.view(x.shape[0], -1)
+		return self.f1(x)
 
 
-class AgentNetwork:		
-	def train(self, observation, action_list, batch_size = 16):
-		# Batch size per loop
+class EncoderRNN(nn.Module):
+	def __init__(self, K = 20, M = 10):
+		super(EncoderRNN, self).__init__()
+		# Another Linear Layer + Layer Norm
+		self.f_pre = nn.Linear(256, 128)
+		self.m1 = nn.LayerNorm(128)
+		# LSTM layer
+		self.lstm = nn.LSTM(128,128)
+		self.m2 = nn.LayerNorm(128)
+		# MLP layers
+		self.f_z1 = nn.Linear(128, 64)
+		self.f_z2 = nn.Linear(64, K) # The value of K here is 20
+		self.f_b1 = nn.Linear(128, 64)
+		self.f_b2 = nn.Linear(64, 1)
+		# Other stuff
+		self.masks = []
+		self.M = M
 
+	def forward(self, x, mask):
+		inp = self.m1(self.f_pre(x))
+		for _ in range(M):
+			# insert mask code here
+			x, (h,c) = self.lstm(inp.unsqueeze(1))
+			x = self.m2(x[-1])
+			# Computing the hz, hb
+			hz = F.relu(self.f_z2(F.relu(self.f_z1(x))))
+			hb = F.relu(self.f_b2(F.relu(self.f_b1(x))))
+			# Gumbel softmax-ing
+			z = F.gumbel_softmax(hz, 1)
+			b = F.gumbel_softmax(hb, 1)
+			# Predict the masks and append
+
+
+
+class AgentNetwork:
+	def __init__(self, action_list):
+		self.action_list = action_list
+		self.embed = EmbedCNN()
+		self.encoder = EncoderRNN()
+		# self.optimiser = torch.optim.Adam(self.encoder.parameters())
+		
+	def train(self, observations):
+		# We're looking at a single demonstration
+		# Embed
+		obs = torch.Tensor(observations)
+		obs_emb = self.embed(obs)
+		# Encode iteratively
+		# Decode
+		# Formulate loss
+		# Backprop :)
+		return None
 
 	def save(self, observation):
+		return None
 		
-
-	def load(self):
-		
+	def load(self):		
+		return None
 
 
 def encode_observation_3d(observations, observation_order='$H&@J/*c!d#P'):
 	all_list = []
-		for obs in observations:
-			all_list.append(np.array([obs.layers[key].astype(int) for key in observation_order]))
+	for obs in observations:
+		all_list.append(np.array([obs.layers[key].astype(int) for key in observation_order]))
 	return all_list
 
 
 def main():
 	# You don't really need mazes, it can just be obtained from the demonstrations
 	mazes_and_demos = pickle.load(open("mazes_and_demos.pk", "rb"))
-	observations = mazes_and_demos["observations"]
-	actions = mazes_and_demos["actions"]
-
-	# create_bc_policy(observations, actions)
-	agent = AgentNetwork()
-	obs_3d = encode_observation_3d(observations)
-
-	agent.train(obs_3d, actions)
+	action_list = [0, 1, 2, 3, 5, 6, 7, 8]
+	# Create the module to train the net
+	agent = AgentNetwork(action_list)
+	# Just playing with a single demonstration
+	demo = mazes_and_demos["demos"][0]
+	observations_3d = encode_observation_3d(demo["observations"])
+	agent.train(observations_3d)
 
 
 if __name__ == '__main__':
