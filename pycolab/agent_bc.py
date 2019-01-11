@@ -27,33 +27,61 @@ class EncoderRNN(nn.Module):
 		super(EncoderRNN, self).__init__()
 		# Another Linear Layer + Layer Norm
 		self.f_pre = nn.Linear(256, 128)
-		self.m1 = nn.LayerNorm(128)
+		self.m = nn.LayerNorm(128)
 		# LSTM layer
 		self.lstm = nn.LSTM(128,128)
-		self.m2 = nn.LayerNorm(128)
 		# MLP layers
 		self.f_z1 = nn.Linear(128, 64)
-		self.f_z2 = nn.Linear(64, K) # The value of K here is 20
+		self.f_z2 = nn.Linear(64, K) 		# The value of K here is 20
 		self.f_b1 = nn.Linear(128, 64)
 		self.f_b2 = nn.Linear(64, 1)
 		# Other stuff
-		self.masks = []
-		self.M = M
+		self.seg_masks = []
+		self.rnn_masks = []
+		self.probs = []
+		self.latents = []
+		self.M = M 							# The number of components
 
-	def forward(self, x, mask):
-		inp = self.m1(self.f_pre(x))
-		for _ in range(M):
-			# insert mask code here
-			x, (h,c) = self.lstm(inp.unsqueeze(1))
-			x = self.m2(x[-1])
+	def forward(self, x):
+		inp = self.m(self.f_pre(x))
+		seq_len = inp.shape[0]
+		prob = torch.zeros(seq_len)
+		prob[0] = 1
+		mask = torch.ones(seq_len)
+		self.probs.append(prob)
+		self.seg_masks.append(mask)
+		self.rnn_masks.append(mask)
+		for _ in range(self.M):
+			x = torch.empty(0,inp[0].shape[0])
+			h = torch.zeros(inp[0].shape).reshape(1,1,-1)
+			c = torch.zeros(inp[0].shape).reshape(1,1,-1)
+			# Masking segments for the b prediction
+			for inp_t, mask_t in zip(inp, self.rnn_masks[-1]):
+				x_t, (h,c) = self.lstm(inp_t.reshape(1, 1,-1), (h,c))
+				x = torch.cat((x, x_t.reshape(1,-1)))
+				h = h*mask_t
+			# Masking segments for the z prediction
+			h = torch.zeros(inp[0].shape).reshape(1,1,-1)
+			c = torch.zeros(inp[0].shape).reshape(1,1,-1)
+			for inp_t, mask_t in zip(inp, self.seg_masks[-1]):
+				_, (h,c) = self.lstm(inp_t.reshape(1, 1,-1), (h,c))
+				h = h*mask_t
 			# Computing the hz, hb
-			hz = F.relu(self.f_z2(F.relu(self.f_z1(x))))
-			hb = F.relu(self.f_b2(F.relu(self.f_b1(x))))
+			hz = self.f_z2(F.relu(self.f_z1(h.squeeze(1))))
+			hb = self.f_b2(F.relu(self.f_b1(x)))
 			# Gumbel softmax-ing
 			z = F.gumbel_softmax(hz, 1)
-			b = F.gumbel_softmax(hb, 1)
-			# Predict the masks and append
+			b = F.gumbel_softmax(hb.transpose(0, 1), 1)
+			# Get the masks and append
+			mask = torch.ones(b.shape)
+			for pr in self.probs:
+				mask *= torch.cumsum(pr, 0)
+			self.rnn_masks.append(mask)
+			self.seg_masks.append(mask*(1 - torch.cumsum(b, 1)))
+			self.probs.append(b)
+			self.latents.append(z)
 
+		return self.probs, self.latents, self.seg_masks
 
 
 class AgentNetwork:
