@@ -1,25 +1,7 @@
-TO DO:
+To do:
 
-Current assumptions: 
+- Check code; is there a VAE part somewhere
+- Testing part of the code
 
-- pass the env to the custom game; 
-- visualise the instructions
-	(some error in execution -- the way some stuff was done)
-- disable the visualisation
-- enable the passing of enough env states that the demo can be visualised if necessary
-
-
-- get 1000 demonstrations
-
-
-
-- Get behaviour cloning; loss
-
-- Read the paper again
-- Add the VAE loss
-
-ICML: 22nd
-- sat: bc today
-- sun-mon: vae loss in 2 days; reproduce their results
-- tue: generalising the environment
-
+# Given state, action pair, get the probabilities of (b,z) being what they are
+- then, use the actual probabilities generated through NNs

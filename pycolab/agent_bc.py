@@ -36,22 +36,20 @@ class EncoderRNN(nn.Module):
 		self.f_b1 = nn.Linear(128, 64)
 		self.f_b2 = nn.Linear(64, 1)
 		# Other stuff
+		self.M = M 							# The number of components
+
+	def forward(self, x):
 		self.seg_masks = []
 		self.rnn_masks = []
 		self.probs = []
 		self.latents = []
-		self.M = M 							# The number of components
-
-	def forward(self, x):
 		inp = self.m(self.f_pre(x))
 		seq_len = inp.shape[0]
 		prob = torch.zeros(seq_len)
 		prob[0] = 1
-		mask = torch.ones(seq_len)
 		self.probs.append(prob)
-		self.seg_masks.append(mask)
-		self.rnn_masks.append(mask)
-		for _ in range(self.M):
+		self.rnn_masks.append(torch.cumsum(prob, 0))
+		for itr in range(self.M):
 			x = torch.empty(0,inp[0].shape[0])
 			h = torch.zeros(inp[0].shape).reshape(1,1,-1)
 			c = torch.zeros(inp[0].shape).reshape(1,1,-1)
@@ -60,52 +58,93 @@ class EncoderRNN(nn.Module):
 				x_t, (h,c) = self.lstm(inp_t.reshape(1, 1,-1), (h,c))
 				x = torch.cat((x, x_t.reshape(1,-1)))
 				h = h*mask_t
-			# Masking segments for the z prediction
+			# Computing the b
+			hb = self.f_b2(F.relu(self.f_b1(x)))
+			b = F.gumbel_softmax(hb.transpose(0, 1), 1)
+			seg_mask = (self.rnn_masks[-1]*(1 - torch.cumsum(b, 1))).reshape(-1)
+			self.seg_masks.append(seg_mask)
 			h = torch.zeros(inp[0].shape).reshape(1,1,-1)
 			c = torch.zeros(inp[0].shape).reshape(1,1,-1)
-			for inp_t, mask_t in zip(inp, self.seg_masks[-1]):
+			for inp_t, mask_t in zip(inp, seg_mask):
 				_, (h,c) = self.lstm(inp_t.reshape(1, 1,-1), (h,c))
 				h = h*mask_t
-			# Computing the hz, hb
+			# Computing the z
 			hz = self.f_z2(F.relu(self.f_z1(h.squeeze(1))))
-			hb = self.f_b2(F.relu(self.f_b1(x)))
-			# Gumbel softmax-ing
 			z = F.gumbel_softmax(hz, 1)
-			b = F.gumbel_softmax(hb.transpose(0, 1), 1)
 			# Get the masks and append
-			mask = torch.ones(b.shape)
-			for pr in self.probs:
-				mask *= torch.cumsum(pr, 0)
-			self.rnn_masks.append(mask)
-			self.seg_masks.append(mask*(1 - torch.cumsum(b, 1)))
-			self.probs.append(b)
+			self.probs.append(b.squeeze(0))
 			self.latents.append(z)
-
+			self.rnn_masks.append(self.rnn_masks[-1]*torch.cumsum(b.squeeze(0),0))
 		return self.probs, self.latents, self.seg_masks
 
 
+class DecoderRNN(nn.Module):
+	def __init__(self, n_classes = 9):
+		super(DecoderRNN, self).__init__()
+		self.n_classes = n_classes
+		# layer norm and lstm
+		self.m = nn.LayerNorm(20)
+		self.lstm = nn.LSTM(20, self.n_classes)
+		# deconv into shape = 128
+	def forward(self, z, seq_length = 100):
+		h = torch.zeros([1,1, self.n_classes])
+		c = torch.zeros([1,1, self.n_classes])
+		x = torch.empty(0, self.n_classes)
+		for _ in range(seq_length):
+			x_t, (h,c) = self.lstm(z.reshape(1,1,-1), (h,c))
+			x = torch.cat((x, F.softmax(x_t.reshape(1,-1), dim=1)))
+		return x
+
+
 class AgentNetwork:
-	def __init__(self, action_list):
-		self.action_list = action_list
+	def __init__(self):
+		# The networks
 		self.embed = EmbedCNN()
 		self.encoder = EncoderRNN()
-		# self.optimiser = torch.optim.Adam(self.encoder.parameters())
+		self.decoder = DecoderRNN()
+		#Optimisers
+		self.optimiser = torch.optim.Adam(list(self.encoder.parameters()) +\
+						 list(self.decoder.parameters()) + list(self.embed.parameters()))
+		self.criterion = nn.NLLLoss(reduction='none')
 		
-	def train(self, observations):
+	def train(self, demos, epochs=100):
+		for epoch in range(epochs):
+			for demo in demos:
+				observations_3d = encode_observation_3d(demo["observations"])
+				loss_t = self.train_iter(observations_3d, demo["actions"][:-1])
+				print(loss_t)
+
+		return None
+
+	def train_iter(self, observations, actions):
 		# We're looking at a single demonstration
 		# Embed
 		obs = torch.Tensor(observations)
 		obs_emb = self.embed(obs)
 		# Encode iteratively
+		probs, latents, seg_masks = self.encoder(obs_emb)
 		# Decode
+		trajs = []
+		for latent in latents:
+			trajs.append(self.decoder(latent, obs_emb.shape[0]))
 		# Formulate loss
+		loss = torch.zeros([1])
+		for tr, mask, b_t, z in zip(trajs, seg_masks, probs, latents):
+			# Negative log likelihood of actions
+			import ipdb; ipdb.set_trace()
+			loss += torch.sum(self.criterion(tr[:-2], torch.tensor(actions))*mask[:-2])/mask[:-2].shape[0]
+			# Loss for the priors part
+			loss += 0
+			b_t + z = ewih
 		# Backprop :)
-		return None
+		loss.backward()
+		self.optimiser.step()
+		return loss.item()
 
 	def save(self, observation):
 		return None
 		
-	def load(self):		
+	def load(self):
 		return None
 
 
@@ -119,13 +158,10 @@ def encode_observation_3d(observations, observation_order='$H&@J/*c!d#P'):
 def main():
 	# You don't really need mazes, it can just be obtained from the demonstrations
 	mazes_and_demos = pickle.load(open("mazes_and_demos.pk", "rb"))
-	action_list = [0, 1, 2, 3, 5, 6, 7, 8]
-	# Create the module to train the net
-	agent = AgentNetwork(action_list)
-	# Just playing with a single demonstration
-	demo = mazes_and_demos["demos"][0]
-	observations_3d = encode_observation_3d(demo["observations"])
-	agent.train(observations_3d)
+	# Create the module and train the agent
+	agent = AgentNetwork()
+	agent.train(mazes_and_demos["demos"], epochs=100)
+	import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
