@@ -14,7 +14,7 @@ class EmbedCNN(nn.Module):
 		self.conv2 = nn.Conv2d(64, 64, (3, 3)) # Size (-1, 64,  8, 28) -> (-1, 64, 6, 26)
 		# FC layers
 		self.f1 = nn.Linear(9984, 256) # Input size (-1,  9984)
-		
+
 	def forward(self, x):
 		x = F.relu(self.conv1(x))
 		x = F.relu(self.conv2(x))
@@ -84,6 +84,7 @@ class DecoderRNN(nn.Module):
 		self.n_classes = n_classes
 		# layer norm and lstm
 		self.m = nn.LayerNorm(20)
+		# Check the Layer Norm; where this should be used etc.
 		self.lstm = nn.LSTM(20, self.n_classes)
 		# deconv into shape = 128
 	def forward(self, z, seq_length = 100):
@@ -102,7 +103,7 @@ class AgentNetwork:
 		self.embed = EmbedCNN()
 		self.encoder = EncoderRNN()
 		self.decoder = DecoderRNN()
-		#Optimisers
+		# Optimisers
 		self.optimiser = torch.optim.Adam(list(self.encoder.parameters()) +\
 						 list(self.decoder.parameters()) + list(self.embed.parameters()))
 		self.criterion = nn.NLLLoss(reduction='none')
@@ -113,7 +114,6 @@ class AgentNetwork:
 				observations_3d = encode_observation_3d(demo["observations"])
 				loss_t = self.train_iter(observations_3d, demo["actions"][:-1])
 				print(loss_t)
-
 		return None
 
 	def train_iter(self, observations, actions):
@@ -129,13 +129,15 @@ class AgentNetwork:
 			trajs.append(self.decoder(latent, obs_emb.shape[0]))
 		# Formulate loss
 		loss = torch.zeros([1])
-		for tr, mask, b_t, z in zip(trajs, seg_masks, probs, latents):
+		#for tr, mask, b_t, z in zip(trajs, seg_masks, probs, latents):
+		import ipdb; ipdb.set_trace()
+		for itr in range(len(trajs))
 			# Negative log likelihood of actions
 			import ipdb; ipdb.set_trace()
 			loss += torch.sum(self.criterion(tr[:-2], torch.tensor(actions))*mask[:-2])/mask[:-2].shape[0]
-			# Loss for the priors part
-			loss += 0
-			b_t + z = ewih
+			# KL divergence of prior and posterior
+			# URGENT: b_t is fine. But you really need
+			# loss += 0 z + b_probability(b_t) - z - b_t
 		# Backprop :)
 		loss.backward()
 		self.optimiser.step()
@@ -147,6 +149,19 @@ class AgentNetwork:
 	def load(self):
 		return None
 
+def z_probability(z):
+	# Actual probability distribution:
+	# ind ... some argmax value
+	# 1/20 is the uniform probability each. I fell like this may be a constant
+	# This probably doesn't matter at all, because it is uniform
+	return 1
+
+def b_probability(del_b, lamda = 3):
+	# Poisson distribution
+	fac = 1
+	for r in reversed(range(2, del_b+1)):
+		fac *= r
+	return np.exp(-lamda)*np.power(lamda, del_b)/fac
 
 def encode_observation_3d(observations, observation_order='$H&@J/*c!d#P'):
 	all_list = []
